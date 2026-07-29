@@ -1,0 +1,3 @@
+# Native Swift + AppKit, no cross-platform framework
+
+The app's two load-bearing behaviors — overlay windows that appear above fullscreen Spaces on every monitor, and click-through everywhere except the Dog — are native AppKit window behaviors (`NSPanel` at screen-saver level, `canJoinAllSpaces` + `fullScreenAuxiliary`), and calendar access is EventKit. Electron reaches these only through native helper modules and its over-fullscreen behavior is flaky across macOS versions, while costing ~150MB RAM for an always-running app. We build a Swift menu-bar app (LSUIElement) and accept the maintenance cost of Swift over a more familiar web stack.
