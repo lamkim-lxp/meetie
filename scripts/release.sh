@@ -7,30 +7,28 @@ INFO_PLIST="$ROOT/Support/Info.plist"
 APP="$ROOT/build/Meetie.app"
 ALLOW_DIRTY=false
 SKIP_TESTS=false
+SIGNING_IDENTITY_OVERRIDE=""
 STAGING=""
 
 usage() {
-  cat <<'EOF'
-Usage: scripts/release.sh [options]
-
-Build, sign, notarize, staple, and validate a public Meetie DMG.
-The version and build number are read from Support/Info.plist.
-
-Required environment:
-  SIGNING_IDENTITY  Exact Developer ID Application identity from Keychain
-
-Optional environment:
-  NOTARY_PROFILE    notarytool Keychain profile (default: meetie-notary)
-
-Options:
-  --allow-dirty     Allow release creation from a dirty Git working tree
-  --skip-tests      Skip the Swift test suite
-  -h, --help        Show this help
-
-Example:
-  SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
-    scripts/release.sh
-EOF
+  printf '%s\n' \
+    'Usage: scripts/release.sh [options]' \
+    '' \
+    'Build, sign, notarize, staple, and validate a public Meetie DMG.' \
+    'The version and build number are read from Support/Info.plist.' \
+    '' \
+    'Optional environment:' \
+    '  NOTARY_PROFILE    notarytool Keychain profile (default: meetie-notary)' \
+    '' \
+    'Options:' \
+    '  --allow-dirty                  Allow a dirty Git working tree' \
+    '  --skip-tests                   Skip the Swift test suite' \
+    '  --signing-identity IDENTITY    Select an identity when multiple Developer ID' \
+    '                                 Application identities are installed' \
+    '  -h, --help                     Show this help' \
+    '' \
+    'Example:' \
+    '  scripts/release.sh'
 }
 
 log() {
@@ -58,6 +56,11 @@ while [[ $# -gt 0 ]]; do
     --skip-tests)
       SKIP_TESTS=true
       ;;
+    --signing-identity)
+      [[ $# -ge 2 ]] || die "--signing-identity requires a name or SHA-1 hash"
+      SIGNING_IDENTITY_OVERRIDE="$2"
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -70,11 +73,7 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-SIGNING_IDENTITY="${SIGNING_IDENTITY:-}"
 NOTARY_PROFILE="${NOTARY_PROFILE:-meetie-notary}"
-
-[[ -n "$SIGNING_IDENTITY" ]] ||
-  die "SIGNING_IDENTITY is required; run 'security find-identity -v -p codesigning'"
 
 for command in codesign git hdiutil lipo make security shasum spctl swift xcrun; do
   command -v "$command" >/dev/null 2>&1 ||
@@ -91,8 +90,58 @@ if [[ "$ALLOW_DIRTY" == false ]]; then
 fi
 
 IDENTITIES="$(security find-identity -v -p codesigning)"
-[[ "$IDENTITIES" == *"\"$SIGNING_IDENTITY\""* ]] ||
-  die "SIGNING_IDENTITY does not match an available code-signing identity"
+IDENTITY_HASHES=()
+IDENTITY_NAMES=()
+
+while IFS= read -r identity_line; do
+  [[ "$identity_line" == *'"Developer ID Application:'* ]] || continue
+
+  identity_fields="${identity_line#*) }"
+  identity_hash="${identity_fields%% *}"
+  identity_name="${identity_fields#* }"
+  identity_name="${identity_name#\"}"
+  identity_name="${identity_name%\"}"
+
+  [[ "$identity_hash" =~ ^[[:xdigit:]]{40}$ ]] || continue
+  IDENTITY_HASHES+=("$identity_hash")
+  IDENTITY_NAMES+=("$identity_name")
+done <<<"$IDENTITIES"
+
+if [[ ${#IDENTITY_HASHES[@]} -eq 0 ]]; then
+  die "no valid 'Developer ID Application' identity is installed; an 'Apple Development' identity cannot sign a public release"
+fi
+
+if [[ -n "$SIGNING_IDENTITY_OVERRIDE" ]]; then
+  matching_identity_indexes=()
+  for index in "${!IDENTITY_HASHES[@]}"; do
+    if [[ "$SIGNING_IDENTITY_OVERRIDE" == "${IDENTITY_HASHES[$index]}" ||
+          "$SIGNING_IDENTITY_OVERRIDE" == "${IDENTITY_NAMES[$index]}" ]]; then
+      matching_identity_indexes+=("$index")
+    fi
+  done
+
+  if [[ ${#matching_identity_indexes[@]} -eq 0 ]]; then
+    die "--signing-identity does not match an installed Developer ID Application identity"
+  fi
+  if [[ ${#matching_identity_indexes[@]} -gt 1 ]]; then
+    die "--signing-identity matched multiple certificates; use the SHA-1 hash"
+  fi
+
+  selected_identity_index="${matching_identity_indexes[0]}"
+elif [[ ${#IDENTITY_HASHES[@]} -eq 1 ]]; then
+  selected_identity_index=0
+else
+  printf 'Multiple Developer ID Application identities are installed:\n' >&2
+  for index in "${!IDENTITY_HASHES[@]}"; do
+    printf '  %s  %s\n' \
+      "${IDENTITY_HASHES[$index]}" \
+      "${IDENTITY_NAMES[$index]}" >&2
+  done
+  die "rerun with --signing-identity followed by the required SHA-1 hash"
+fi
+
+SIGNING_IDENTITY="${IDENTITY_HASHES[$selected_identity_index]}"
+SIGNING_IDENTITY_NAME="${IDENTITY_NAMES[$selected_identity_index]}"
 
 VERSION="$(
   /usr/libexec/PlistBuddy \
@@ -115,7 +164,8 @@ CHECKSUM="$DMG.sha256"
 NOTARY_RESULT="$ROOT/build/notary-result.json"
 
 printf 'Release version: %s (%s)\n' "$VERSION" "$BUILD_NUMBER"
-printf 'Signing identity: %s\n' "$SIGNING_IDENTITY"
+printf 'Signing identity: %s\n' "$SIGNING_IDENTITY_NAME"
+printf 'Signing certificate SHA-1: %s\n' "$SIGNING_IDENTITY"
 printf 'Notary profile: %s\n' "$NOTARY_PROFILE"
 
 if [[ "$SKIP_TESTS" == false ]]; then

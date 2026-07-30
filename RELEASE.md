@@ -70,14 +70,23 @@ After completing the certificate, version, and notarization credential setup,
 run the release script from a clean working tree:
 
 ```sh
-export SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)"
 export NOTARY_PROFILE="meetie-notary"
 scripts/release.sh
 ```
 
 The script reads the version from `Support/Info.plist`, runs the tests, builds
 the release app, signs the app and DMG, submits it for notarization, staples
-the ticket, runs Gatekeeper validation, and creates a SHA-256 checksum.
+the ticket, runs Gatekeeper validation, and creates a SHA-256 checksum. It
+automatically selects the installed `Developer ID Application` identity when
+exactly one is available. It rejects `Apple Development` identities because
+they cannot sign a public release.
+
+If multiple Developer ID identities are installed, select one explicitly
+using the SHA-1 hash printed by the script:
+
+```sh
+scripts/release.sh --signing-identity "CERTIFICATE_SHA1"
+```
 
 Successful output is written to:
 
