@@ -26,7 +26,7 @@ cp "$ROOT/assets/icons/menubar/created/clock@2x.png" "$RES/menubar/"
 
 # Dog sprites (R14a)
 for v in shiba corgi; do
-  for i in 1 2 3 4 5 6; do
+  for i in 1 2 3 4 5 6 7 8; do
     cp "$ROOT/assets/dog-sprite/created/$v/frame$i.png" "$RES/dog-sprite/$v/"
   done
 done

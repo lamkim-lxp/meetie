@@ -11,10 +11,10 @@ enum Assets {
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
-    /// 6-frame 32×32 run cycle (R14a); rendered at 2× with nearest-neighbor.
+    /// Eight-frame 48×48 run cycle (R14a); rendered at 2× with nearest-neighbor.
     static func spriteFrames(for variant: DogVariant) -> [CGImage] {
         if let cached = frameCache[variant] { return cached }
-        let frames: [CGImage] = (1...6).compactMap { index in
+        let frames: [CGImage] = (1...DogModel.frameCount).compactMap { index in
             guard let url = resourceURL("dog-sprite/\(variant.rawValue)/frame\(index).png"),
                   let image = NSImage(contentsOf: url) else { return nil }
             var rect = CGRect(origin: .zero, size: image.size)

@@ -180,7 +180,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         menu.addItem(.separator())
         let quit = NSMenuItem(
-            title: "Quit Meetie",
+            title: "Quit",
             action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"
         )
         quit.target = NSApp

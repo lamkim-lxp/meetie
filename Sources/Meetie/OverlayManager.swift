@@ -24,7 +24,7 @@ final class OverlayView: NSView {
 /// Alert is active (R25, R26).
 final class OverlayManager: NSObject {
     // Layout constants (§2.4).
-    private static let dogSize: CGFloat = 96        // 32 px sprite at 3×
+    private static let dogSize: CGFloat = 96        // 48 px sprite at 2×
     private static let bannerGap: CGFloat = 12
     private static let bannerHeight: CGFloat = 72   // 24 art px at 3× (sign asset)
     private static let bannerPadding: CGFloat = 22  // sign frame (18) + breathing room
@@ -306,6 +306,7 @@ final class OverlayManager: NSObject {
         let sprite = CALayer()
         sprite.bounds = CGRect(x: 0, y: 0, width: Self.dogSize, height: Self.dogSize)
         sprite.magnificationFilter = .nearest  // crisp pixels (§2.4)
+        sprite.minificationFilter = .nearest
 
         let rope = CAShapeLayer()
         rope.strokeColor = NSColor(srgbRed: 0x3A / 255, green: 0x23 / 255,

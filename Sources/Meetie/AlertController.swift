@@ -7,6 +7,7 @@ enum DogVariant: String, CaseIterable {
 
 /// The one Dog of an Alert: variant + gait animation state.
 struct DogModel {
+    static let frameCount = 8
     let id = UUID()
     let variant: DogVariant   // random per Alert (R14a)
     let frameHold: TimeInterval
@@ -16,8 +17,8 @@ struct DogModel {
     static func random() -> DogModel {
         DogModel(
             variant: DogVariant.allCases.randomElement()!,
-            frameHold: .random(in: 0.080...0.100),
-            frameIndex: Int.random(in: 0..<6),
+            frameHold: .random(in: 0.065...0.075),
+            frameIndex: Int.random(in: 0..<frameCount),
             frameClock: 0
         )
     }
@@ -108,7 +109,7 @@ final class AlertController {
         dog.frameClock += dt
         while dog.frameClock >= dog.frameHold {
             dog.frameClock -= dog.frameHold
-            dog.frameIndex = (dog.frameIndex + 1) % 6
+            dog.frameIndex = (dog.frameIndex + 1) % DogModel.frameCount
         }
     }
 
